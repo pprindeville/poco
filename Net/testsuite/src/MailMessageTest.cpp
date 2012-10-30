@@ -50,6 +50,7 @@ using Poco::Net::PartHandler;
 using Poco::Net::MediaType;
 using Poco::Net::StringPartSource;
 using Poco::Timestamp;
+using Poco::replaceInPlace;
 
 
 namespace
@@ -416,6 +417,45 @@ void MailMessageTest::testReadMultiPart()
 }
 
 
+void MailMessageTest::testReadWriteMultiPart()
+{
+	std::string msgin(
+		"Content-Type: multipart/mixed; boundary=MIME_boundary_31E8A8D61DF53389\r\n"
+		"Date: Thu, 1 Jan 1970 00:00:00 GMT\r\n"
+		"From: poco@appinf.com\r\n"
+		"Mime-Version: 1.0\r\n"
+		"Subject: Test Message\r\n"
+		"To: John Doe <john.doe@no.where>\r\n"
+		"\r\n"
+		"--MIME_boundary_31E8A8D61DF53389\r\n"
+		"Content-Disposition: inline\r\n"
+		"Content-Transfer-Encoding: 8bit\r\n"
+		"Content-Type: text/plain\r\n"
+		"\r\n"
+		"Hello World!\r\n"
+		"\r\n"
+		"--MIME_boundary_31E8A8D61DF53389\r\n"
+		"Content-Disposition: attachment; filename=sample.dat\r\n"
+		"Content-ID: abcd1234\r\n"
+		"Content-Transfer-Encoding: base64\r\n"
+		"Content-Type: application/octet-stream; name=sample\r\n"
+		"\r\n"
+		"VGhpcyBpcyBzb21lIGJpbmFyeSBkYXRhLiBSZWFsbHku\r\n"
+		"--MIME_boundary_31E8A8D61DF53389--\r\n"
+	);
+
+	std::istringstream istr(msgin);
+	std::ostringstream ostr;
+	MailMessage message;
+
+	message.read(istr);
+	message.write(ostr);
+	
+	std::string msgout(ostr.str());
+	assert (msgout == msgin);
+}
+
+
 void MailMessageTest::testEncodeWord()
 {
 	std::string plain("this is pure ASCII");
@@ -460,6 +500,7 @@ CppUnit::Test* MailMessageTest::suite()
 	CppUnit_addTest(pSuite, MailMessageTest, testReadQP);
 	CppUnit_addTest(pSuite, MailMessageTest, testRead8Bit);
 	CppUnit_addTest(pSuite, MailMessageTest, testReadMultiPart);
+	CppUnit_addTest(pSuite, MailMessageTest, testReadWriteMultiPart);
 	CppUnit_addTest(pSuite, MailMessageTest, testEncodeWord);
 
 	return pSuite;

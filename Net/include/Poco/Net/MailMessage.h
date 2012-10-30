@@ -223,6 +223,13 @@ public:
 		/// Returns the encoded string, or the original string if it 
 		/// consists only of ASCII characters.
 
+	
+	static const std::string TEXT_PLAIN;
+	static const std::string CTE_7BIT;
+	static const std::string CTE_8BIT;
+	static const std::string CTE_QUOTED_PRINTABLE;
+	static const std::string CTE_BASE64;
+
 protected:
 	struct Part
 	{
@@ -258,11 +265,6 @@ protected:
 	static const std::string HEADER_CONTENT_DISPOSITION;
 	static const std::string HEADER_MIME_VERSION;
 	static const std::string EMPTY_HEADER;
-	static const std::string TEXT_PLAIN;
-	static const std::string CTE_7BIT;
-	static const std::string CTE_8BIT;
-	static const std::string CTE_QUOTED_PRINTABLE;
-	static const std::string CTE_BASE64;
 
 private:
 	MailMessage(const MailMessage&);
@@ -272,6 +274,7 @@ private:
 	PartVec                 _parts;
 	std::string             _content;
 	ContentTransferEncoding _encoding;
+	mutable std::string     _boundary;
 };
 
 

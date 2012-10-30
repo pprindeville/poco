@@ -40,8 +40,11 @@
 #include "Poco/Net/MultipartWriter.h"
 #include "Poco/Net/PartSource.h"
 #include "Poco/Net/PartHandler.h"
+#include "Poco/Net/StringPartSource.h"
+#include "Poco/Net/FilePartSource.h"
 #include "Poco/Net/QuotedPrintableEncoder.h"
 #include "Poco/Net/QuotedPrintableDecoder.h"
+#include "Poco/Net/NameValueCollection.h"
 #include "Poco/Base64Encoder.h"
 #include "Poco/Base64Decoder.h"
 #include "Poco/StreamCopier.h"
@@ -49,6 +52,7 @@
 #include "Poco/DateTimeFormatter.h"
 #include "Poco/DateTimeParser.h"
 #include "Poco/String.h"
+#include "Poco/StringTokenizer.h"
 #include "Poco/StreamCopier.h"
 #include "Poco/NumberFormatter.h"
 #include <sstream>
@@ -60,6 +64,7 @@ using Poco::StreamCopier;
 using Poco::DateTimeFormat;
 using Poco::DateTimeFormatter;
 using Poco::DateTimeParser;
+using Poco::StringTokenizer;
 using Poco::icompare;
 
 
@@ -72,8 +77,11 @@ namespace
 	class StringPartHandler: public PartHandler
 	{
 	public:
-		StringPartHandler(std::string& content):
-			_str(content)
+		StringPartHandler(std::string& content,
+			MailMessage* pMsg = 0,
+			const std::string& path = ""): _str(content),
+			_pMsg(pMsg),
+			_path(path)
 		{
 		}
 		
@@ -83,11 +91,72 @@ namespace
 		
 		void handlePart(const MessageHeader& header, std::istream& stream)
 		{
-			Poco::StreamCopier::copyToString(stream, _str);
+			std::string tmp;
+			Poco::StreamCopier::copyToString(stream, tmp);
+			if (_pMsg)
+			{
+				
+				MailMessage::ContentTransferEncoding cte = MailMessage::ENCODING_7BIT;
+				std::string enc = header["Content-Transfer-Encoding"];
+				if (enc == MailMessage::CTE_8BIT)
+					cte = MailMessage::ENCODING_8BIT;
+				else if (enc == MailMessage::CTE_QUOTED_PRINTABLE)
+					cte = MailMessage::ENCODING_QUOTED_PRINTABLE;
+				else if (enc == MailMessage::CTE_BASE64)
+					cte = MailMessage::ENCODING_BASE64;
+
+				NameValueCollection::ConstIterator cdIt = header.find("Content-Disposition");
+				if (cdIt != header.end())
+				{
+					NameValueCollection::ConstIterator ciIt = header.find("Content-ID");
+					if (cdIt->second == "inline")
+					{
+						StringPartSource* pSPS = new StringPartSource(tmp, header["Content-Type"]);
+						if (ciIt != header.end()) pSPS->headers().set(ciIt->first, ciIt->second);
+						pSPS->headers().set(cdIt->first, cdIt->second);
+						_pMsg->addContent(pSPS, cte);
+					}
+					else // "attachment"
+					{
+						if (_path.empty())
+						{
+							StringPartSource* pFPS = new StringPartSource(tmp, header["Content-Type"], getFileFromDisp(cdIt->second));
+							if (ciIt != header.end()) pFPS->headers().set(ciIt->first, ciIt->second);
+							pFPS->headers().set(cdIt->first, cdIt->second);
+							_pMsg->addAttachment("", pFPS, cte);
+						}
+						else
+						{
+							throw NotImplementedException("Saving attachments to file.");
+							// TODO: option when file is saved to filesystem
+							// FilePartSource* pFPS = new FilePartSource(tmp, header["Content-Type"]/*, getFilename(cdIt->second)*/);
+						}
+					}
+				}
+			}
+			_str.append(tmp);
 		}
 		
 	private:
+		std::string getFileFromDisp(const std::string& str)
+		{
+			StringTokenizer st(str, ";=", StringTokenizer::TOK_IGNORE_EMPTY | StringTokenizer::TOK_TRIM);
+			StringTokenizer::Iterator it = st.begin();
+			StringTokenizer::Iterator end = st.end();
+			for (; it != end; ++it) { if (*it == "filename") break; }
+			if (it != end)
+			{
+				++it;
+				if (it == end) throw NotFoundException("Attachment filename missing.");
+				return *it;
+			}
+			
+			throw NotFoundException("Attachment filename missing.");
+		}
+
 		std::string& _str;
+		MailMessage* _pMsg;
+		std::string  _path;
 	};
 }
 
@@ -263,8 +332,16 @@ void MailMessage::read(std::istream& istr, PartHandler& handler)
 void MailMessage::read(std::istream& istr)
 {
 	readHeader(istr);
-	StringPartHandler handler(_content);
-	readPart(istr, *this, handler);
+	if (isMultipart())
+	{
+		StringPartHandler handler(_content, this);
+		readMultipart(istr, handler);
+	}
+	else
+	{
+		StringPartHandler handler(_content);
+		readPart(istr, *this, handler);
+	}
 }
 
 
@@ -304,14 +381,14 @@ void MailMessage::writeHeader(const MessageHeader& header, std::ostream& ostr) c
 
 void MailMessage::writeMultipart(MessageHeader& header, std::ostream& ostr) const
 {
-	std::string boundary(MultipartWriter::createBoundary());
+	if (_boundary.empty()) _boundary = MultipartWriter::createBoundary();
 	MediaType mediaType(getContentType());
-	mediaType.setParameter("boundary", boundary);
+	mediaType.setParameter("boundary", _boundary);
 	header.set(HEADER_CONTENT_TYPE, mediaType.toString());
 	header.set(HEADER_MIME_VERSION, "1.0");
 	writeHeader(header, ostr);
 	
-	MultipartWriter writer(ostr, boundary);
+	MultipartWriter writer(ostr, _boundary);
 	for (PartVec::const_iterator it = _parts.begin(); it != _parts.end(); ++it)
 	{
 		writePart(writer, *it);
@@ -384,8 +461,8 @@ void MailMessage::readHeader(std::istream& istr)
 void MailMessage::readMultipart(std::istream& istr, PartHandler& handler)
 {
 	MediaType contentType(getContentType());
-	std::string boundary = contentType.getParameter("boundary");
-	MultipartReader reader(istr, boundary);
+	_boundary = contentType.getParameter("boundary");
+	MultipartReader reader(istr, _boundary);
 	while (reader.hasNextPart())
 	{
 		MessageHeader partHeader;
