@@ -75,21 +75,39 @@ namespace Net {
 namespace
 {
 	class StringPartHandler: public PartHandler
+		/// This is a defualt part handler, used when there is no
+		/// external handler provided to he MailMessage. This handler
+		/// will handle all types of message parts, including attachments.
+		/// Attachments will be handled according to the persistAttachment setting.
 	{
 	public:
 		StringPartHandler(std::string& content,
 			MailMessage* pMsg = 0,
-			const std::string& path = ""): _str(content),
-			_pMsg(pMsg),
-			_path(path)
+			bool persistAttachment = false): _persistAttachment(persistAttachment),
+			_str(content),
+			_pMsg(pMsg)
+				/// Creates string part handler.
+				/// The content parameter represents the part content.
+				/// If pMsg pointer is not null, it points to the calling 
+				/// mail message and will be used to properly populate it
+				/// so the message content could be written out unmodified
+				/// in its entirety, including attachments.
+				/// The persistAttachment parameter, when true, causes
+				/// file attachment to be persisted into temporary files
+				/// to prevent potential memory exhaustion that large files
+				/// could cause.
 		{
 		}
 		
 		~StringPartHandler()
+			/// Destroys strign part handler.
 		{
 		}
 		
 		void handlePart(const MessageHeader& header, std::istream& stream)
+			/// Handles a part. If message pointer was provided at construction time, 
+			/// the message pointed to will be properly populated so it could be written
+			/// back out at a later point in time.
 		{
 			std::string tmp;
 			Poco::StreamCopier::copyToString(stream, tmp);
@@ -97,7 +115,7 @@ namespace
 			{
 				
 				MailMessage::ContentTransferEncoding cte = MailMessage::ENCODING_7BIT;
-				std::string enc = header["Content-Transfer-Encoding"];
+				std::string enc = header[MailMessage::HEADER_CONTENT_TRANSFER_ENCODING];
 				if (enc == MailMessage::CTE_8BIT)
 					cte = MailMessage::ENCODING_8BIT;
 				else if (enc == MailMessage::CTE_QUOTED_PRINTABLE)
@@ -105,31 +123,34 @@ namespace
 				else if (enc == MailMessage::CTE_BASE64)
 					cte = MailMessage::ENCODING_BASE64;
 
-				NameValueCollection::ConstIterator cdIt = header.find("Content-Disposition");
+				NameValueCollection::ConstIterator cdIt = header.find(MailMessage::HEADER_CONTENT_DISPOSITION);
 				if (cdIt != header.end())
 				{
-					NameValueCollection::ConstIterator ciIt = header.find("Content-ID");
+					NameValueCollection::ConstIterator ciIt = header.find(MailMessage::HEADER_CONTENT_ID);
 					if (cdIt->second == "inline")
 					{
-						StringPartSource* pSPS = new StringPartSource(tmp, header["Content-Type"]);
+						StringPartSource* pSPS = new StringPartSource(tmp, header[MailMessage::HEADER_CONTENT_TYPE]);
 						if (ciIt != header.end()) pSPS->headers().set(ciIt->first, ciIt->second);
 						pSPS->headers().set(cdIt->first, cdIt->second);
 						_pMsg->addContent(pSPS, cte);
 					}
 					else // "attachment"
 					{
-						if (_path.empty())
+						if (!_persistAttachment) // leave attachment file embedded in message
 						{
-							StringPartSource* pFPS = new StringPartSource(tmp, header["Content-Type"], getFileFromDisp(cdIt->second));
+							StringPartSource* pFPS = new StringPartSource(tmp,
+								header[MailMessage::HEADER_CONTENT_TYPE], getFileNameFromDisp(cdIt->second));
 							if (ciIt != header.end()) pFPS->headers().set(ciIt->first, ciIt->second);
 							pFPS->headers().set(cdIt->first, cdIt->second);
 							_pMsg->addAttachment("", pFPS, cte);
 						}
-						else
+						else // persist attachemnt file to filesystem
 						{
-							throw NotImplementedException("Saving attachments to file.");
-							// TODO: option when file is saved to filesystem
-							// FilePartSource* pFPS = new FilePartSource(tmp, header["Content-Type"]/*, getFilename(cdIt->second)*/);
+							PersistentPartSource* pFPS = new PersistentPartSource(tmp,
+								header[MailMessage::HEADER_CONTENT_TYPE], getFileNameFromDisp(cdIt->second));
+							if (ciIt != header.end()) pFPS->headers().set(ciIt->first, ciIt->second);
+							pFPS->headers().set(cdIt->first, cdIt->second);
+							_pMsg->addAttachment("", pFPS, cte);
 						}
 					}
 				}
@@ -138,7 +159,7 @@ namespace
 		}
 		
 	private:
-		std::string getFileFromDisp(const std::string& str)
+		std::string getFileNameFromDisp(const std::string& str)
 		{
 			StringTokenizer st(str, ";=", StringTokenizer::TOK_IGNORE_EMPTY | StringTokenizer::TOK_TRIM);
 			StringTokenizer::Iterator it = st.begin();
@@ -147,16 +168,16 @@ namespace
 			if (it != end)
 			{
 				++it;
-				if (it == end) throw NotFoundException("Attachment filename missing.");
+				if (it == end) return "";
 				return *it;
 			}
 			
-			throw NotFoundException("Attachment filename missing.");
+			return "";
 		}
 
 		std::string& _str;
 		MailMessage* _pMsg;
-		std::string  _path;
+		bool         _persistAttachment;
 	};
 }
 
@@ -170,6 +191,7 @@ const std::string MailMessage::HEADER_DATE("Date");
 const std::string MailMessage::HEADER_CONTENT_TYPE("Content-Type");
 const std::string MailMessage::HEADER_CONTENT_TRANSFER_ENCODING("Content-Transfer-Encoding");
 const std::string MailMessage::HEADER_CONTENT_DISPOSITION("Content-Disposition");
+const std::string MailMessage::HEADER_CONTENT_ID("Content-ID");
 const std::string MailMessage::HEADER_MIME_VERSION("Mime-Version");
 const std::string MailMessage::EMPTY_HEADER;
 const std::string MailMessage::TEXT_PLAIN("text/plain");
@@ -179,7 +201,8 @@ const std::string MailMessage::CTE_QUOTED_PRINTABLE("quoted-printable");
 const std::string MailMessage::CTE_BASE64("base64");
 
 
-MailMessage::MailMessage()
+MailMessage::MailMessage(bool persistAttachments): 
+	_persistAttachments(persistAttachments)
 {
 	Poco::Timestamp now;
 	setDate(now);
@@ -334,7 +357,7 @@ void MailMessage::read(std::istream& istr)
 	readHeader(istr);
 	if (isMultipart())
 	{
-		StringPartHandler handler(_content, this);
+		StringPartHandler handler(_content, this, _persistAttachments);
 		readMultipart(istr, handler);
 	}
 	else

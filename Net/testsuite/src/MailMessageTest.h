@@ -52,6 +52,7 @@ public:
 	void testWriteManyRecipients();
 	void testWriteMultiPart();
 	void testReadWriteMultiPart();
+	void testReadWriteMultiPartPersist();
 	void testReadQP();
 	void testRead8Bit();
 	void testReadMultiPart();

@@ -85,17 +85,19 @@ private:
 };
 
 
-TemporaryFile::TemporaryFile(): 
+TemporaryFile::TemporaryFile(bool create): 
 	File(tempName()), 
 	_keep(false)
 {
+	if (create) createFile();
 }
 
 
-TemporaryFile::TemporaryFile(const std::string& tempDir): 
+TemporaryFile::TemporaryFile(const std::string& tempDir, bool create): 
 	File(tempName(tempDir)), 
 	_keep(false)
 {
+	if (create) createFile();
 }
 
 

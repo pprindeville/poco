@@ -43,6 +43,7 @@
 #include "Poco/Net/Net.h"
 #include "Poco/Net/PartSource.h"
 #include "Poco/FileStream.h"
+#include "Poco/TemporaryFile.h"
 
 
 namespace Poco {
@@ -86,6 +87,35 @@ public:
 private:
 	std::string _filename;
 	Poco::FileInputStream _istr;
+};
+
+
+class Net_API PersistentPartSource: public PartSource
+	/// An implementation of PartSource for persisting
+	/// attachment files to the file system.
+{
+public:
+	PersistentPartSource(const std::string& content, const std::string& mediaType, const std::string& filenamee);
+		/// Creates the PersistentPartSource for the given MIME type.
+		/// For security purposes, attachment filename is NOT used to save file to the file system.
+		/// A unique temporary file name is usd to persist the file.
+		/// The given filename parameter is the message part (attachment) filename (see filename()) only.
+		///
+		/// Throws an exception if the file cannot be opened.
+
+	~PersistentPartSource();
+		/// Destroys the PersistentPartSource.
+
+	std::istream& stream();
+		/// Returns a file input stream for the given file.
+		
+	const std::string& filename();
+		/// Returns the filename portion of the path.
+
+private:
+	Poco::TemporaryFile _tmpFile;
+	std::string         _filename;
+	Poco::FileStream    _fstr;
 };
 
 

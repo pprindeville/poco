@@ -86,8 +86,16 @@ public:
 		ENCODING_BASE64
 	};
 
-	MailMessage();
+	MailMessage(bool persistAttachments = false);
 		/// Creates an empty MailMessage.
+		/// 
+		/// If persistAttachments is true, message attachments will be 
+		/// temporarily persisted to the file system. The purpose of 
+		/// this setting is to avoidance potential memory 
+		/// exhaustion when attachment files are very large;
+		/// other than memory exhaustion, there are no other reasons
+		/// preventing attachment files of reasonable size to reside 
+		/// in memory.
 
 	virtual ~MailMessage();
 		/// Destroys the MailMessage.
@@ -223,7 +231,18 @@ public:
 		/// Returns the encoded string, or the original string if it 
 		/// consists only of ASCII characters.
 
-	
+	static const std::string HEADER_SUBJECT;
+	static const std::string HEADER_FROM;
+	static const std::string HEADER_TO;
+	static const std::string HEADER_CC;
+	static const std::string HEADER_BCC;
+	static const std::string HEADER_DATE;
+	static const std::string HEADER_CONTENT_TYPE;
+	static const std::string HEADER_CONTENT_TRANSFER_ENCODING;
+	static const std::string HEADER_CONTENT_DISPOSITION;
+	static const std::string HEADER_CONTENT_ID;
+	static const std::string HEADER_MIME_VERSION;
+	static const std::string EMPTY_HEADER;
 	static const std::string TEXT_PLAIN;
 	static const std::string CTE_7BIT;
 	static const std::string CTE_8BIT;
@@ -254,18 +273,6 @@ protected:
 	static int lineLength(const std::string& str);
 	static void appendRecipient(const MailRecipient& recipient, std::string& str);
 
-	static const std::string HEADER_SUBJECT;
-	static const std::string HEADER_FROM;
-	static const std::string HEADER_TO;
-	static const std::string HEADER_CC;
-	static const std::string HEADER_BCC;
-	static const std::string HEADER_DATE;
-	static const std::string HEADER_CONTENT_TYPE;
-	static const std::string HEADER_CONTENT_TRANSFER_ENCODING;
-	static const std::string HEADER_CONTENT_DISPOSITION;
-	static const std::string HEADER_MIME_VERSION;
-	static const std::string EMPTY_HEADER;
-
 private:
 	MailMessage(const MailMessage&);
 	MailMessage& operator = (const MailMessage&);
@@ -275,6 +282,7 @@ private:
 	std::string             _content;
 	ContentTransferEncoding _encoding;
 	mutable std::string     _boundary;
+	bool                    _persistAttachments;
 };
 
 
