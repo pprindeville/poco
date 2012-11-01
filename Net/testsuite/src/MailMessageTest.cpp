@@ -37,6 +37,7 @@
 #include "Poco/Net/MailRecipient.h"
 #include "Poco/Net/PartHandler.h"
 #include "Poco/Net/StringPartSource.h"
+#include "Poco/Net/PartStore.h"
 #include "Poco/Net/MediaType.h"
 #include "Poco/Timestamp.h"
 #include <sstream>
@@ -49,6 +50,7 @@ using Poco::Net::MessageHeader;
 using Poco::Net::PartHandler;
 using Poco::Net::MediaType;
 using Poco::Net::StringPartSource;
+using Poco::Net::PartFileStoreFactory;
 using Poco::Timestamp;
 using Poco::replaceInPlace;
 
@@ -456,7 +458,7 @@ void MailMessageTest::testReadWriteMultiPart()
 }
 
 
-void MailMessageTest::testReadWriteMultiPartPersist()
+void MailMessageTest::testReadWriteMultiPartStore()
 {
 	std::string msgin(
 		"Content-Type: multipart/mixed; boundary=MIME_boundary_31E8A8D61DF53389\r\n"
@@ -485,7 +487,8 @@ void MailMessageTest::testReadWriteMultiPartPersist()
 
 	std::istringstream istr(msgin);
 	std::ostringstream ostr;
-	MailMessage message(true);
+	PartFileStoreFactory pfsf;
+	MailMessage message(&pfsf);
 
 	message.read(istr);
 	message.write(ostr);
@@ -540,7 +543,7 @@ CppUnit::Test* MailMessageTest::suite()
 	CppUnit_addTest(pSuite, MailMessageTest, testRead8Bit);
 	CppUnit_addTest(pSuite, MailMessageTest, testReadMultiPart);
 	CppUnit_addTest(pSuite, MailMessageTest, testReadWriteMultiPart);
-	CppUnit_addTest(pSuite, MailMessageTest, testReadWriteMultiPartPersist);
+	CppUnit_addTest(pSuite, MailMessageTest, testReadWriteMultiPartStore);
 	CppUnit_addTest(pSuite, MailMessageTest, testEncodeWord);
 
 	return pSuite;

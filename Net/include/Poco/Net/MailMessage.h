@@ -43,6 +43,7 @@
 #include "Poco/Net/Net.h"
 #include "Poco/Net/MessageHeader.h"
 #include "Poco/Net/MailRecipient.h"
+#include "Poco/Net/PartStore.h"
 #include "Poco/Timestamp.h"
 #include <vector>
 
@@ -86,20 +87,23 @@ public:
 		ENCODING_BASE64
 	};
 
-	MailMessage(bool persistAttachments = false);
+	MailMessage(PartStoreFactory* pStoreFactory = 0);
 		/// Creates an empty MailMessage.
 		/// 
-		/// If persistAttachments is true, message attachments will be 
-		/// temporarily persisted to the file system. The purpose of 
-		/// this setting is to avoidance potential memory 
-		/// exhaustion when attachment files are very large;
-		/// other than memory exhaustion, there are no other reasons
-		/// preventing attachment files of reasonable size to reside 
-		/// in memory.
+		/// If pStoreFactory is not null, message attachments will be 
+		/// handled by the object cretaed by the factory. One obvious
+		/// mode of operation is to temporarily save attachments to 
+		/// the file system in order to avoid potential memory 
+		/// exhaustion when attachment files are very large.
 
 	virtual ~MailMessage();
 		/// Destroys the MailMessage.
-		
+	
+	PartSource* getPartStore(const std::string& content, const std::string& mediaType, const std::string& filename = "");
+		/// Returns either built in (SringPartCource) part store or, 
+		/// if the part store factory was provided during contruction,
+		/// the one created by PartStoreFactory.
+
 	void addRecipient(const MailRecipient& recipient);
 		/// Adds a recipient for the message.
 
@@ -282,7 +286,7 @@ private:
 	std::string             _content;
 	ContentTransferEncoding _encoding;
 	mutable std::string     _boundary;
-	bool                    _persistAttachments;
+	PartStoreFactory*       _pStoreFactory;
 };
 
 

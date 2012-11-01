@@ -64,13 +64,11 @@ class Foundation_API TemporaryFile: public File
 	/// before the application terminates.
 {
 public:
-	TemporaryFile(bool create = false);
+	TemporaryFile();
 		/// Creates the TemporaryFile class.
-		/// Creates the file iff create is true;
 
-	TemporaryFile(const std::string& tempDir, bool create = false);
+	TemporaryFile(const std::string& tempDir);
 		/// Creates the TemporaryFile class using the given directory.
-		/// Creates the file iff create is true;
 
 	~TemporaryFile();
 		/// Destroys the TemporaryFile and

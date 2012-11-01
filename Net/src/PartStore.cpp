@@ -1,9 +1,11 @@
 //
-// MailMessageTest.h
+// PartStore.cpp
 //
-// $Id: //poco/1.4/Net/testsuite/src/MailMessageTest.h#1 $
+// $Id: //poco/1.4/Net/src/PartStore.cpp#1 $
 //
-// Definition of the MailMessageTest class.
+// Library: Net
+// Package: Messages
+// Module:  PartStore
 //
 // Copyright (c) 2005-2006, Applied Informatics Software Engineering GmbH.
 // and Contributors.
@@ -32,39 +34,50 @@
 //
 
 
-#ifndef MailMessageTest_INCLUDED
-#define MailMessageTest_INCLUDED
+#include "Poco/Net/PartStore.h"
+#include "Poco/TemporaryFile.h"
+#include "Poco/File.h"
+#include "Poco/Exception.h"
 
 
-#include "Poco/Net/Net.h"
-#include "CppUnit/TestCase.h"
+namespace Poco {
+namespace Net {
 
 
-class MailMessageTest: public CppUnit::TestCase
+PartStore::PartStore(const std::string& content, const std::string& mediaType, const std::string& filename):
+	PartSource(mediaType),
+	_filename(filename),
+	_path(TemporaryFile::tempName()),
+	_fstr(_path)
 {
-public:
-	MailMessageTest(const std::string& name);
-	~MailMessageTest();
-
-	void testWriteQP();
-	void testWrite8Bit();
-	void testWriteBase64();
-	void testWriteManyRecipients();
-	void testWriteMultiPart();
-	void testReadWriteMultiPart();
-	void testReadWriteMultiPartStore();
-	void testReadQP();
-	void testRead8Bit();
-	void testReadMultiPart();
-	void testEncodeWord();
-
-	void setUp();
-	void tearDown();
-
-	static CppUnit::Test* suite();
-
-private:
-};
+	_fstr << content << std::flush;
+	_fstr.seekg(0, std::ios::beg);
+}
 
 
-#endif // MailMessageTest_INCLUDED
+PartStore::~PartStore()
+{
+	try
+	{
+		_fstr.close();
+		File(_path).remove();
+	}
+	catch (Exception&)
+	{
+	}
+}
+
+
+std::istream& PartStore::stream()
+{
+	return _fstr;
+}
+
+
+const std::string& PartStore::filename()
+{
+	return _filename;
+}
+
+
+} } // namespace Poco::Net

@@ -41,7 +41,6 @@
 #include "Poco/Net/PartSource.h"
 #include "Poco/Net/PartHandler.h"
 #include "Poco/Net/StringPartSource.h"
-#include "Poco/Net/FilePartSource.h"
 #include "Poco/Net/QuotedPrintableEncoder.h"
 #include "Poco/Net/QuotedPrintableDecoder.h"
 #include "Poco/Net/NameValueCollection.h"
@@ -74,33 +73,23 @@ namespace Net {
 
 namespace
 {
-	class StringPartHandler: public PartHandler
-		/// This is a defualt part handler, used when there is no
-		/// external handler provided to he MailMessage. This handler
+	class MultiPartHandler: public PartHandler
+		/// This is a default part handler for multipart messages, used when there 
+		/// is no external handler provided to he MailMessage. This handler
 		/// will handle all types of message parts, including attachments.
-		/// Attachments will be handled according to the persistAttachment setting.
 	{
 	public:
-		StringPartHandler(std::string& content,
-			MailMessage* pMsg = 0,
-			bool persistAttachment = false): _persistAttachment(persistAttachment),
-			_str(content),
-			_pMsg(pMsg)
-				/// Creates string part handler.
-				/// The content parameter represents the part content.
-				/// If pMsg pointer is not null, it points to the calling 
-				/// mail message and will be used to properly populate it
-				/// so the message content could be written out unmodified
-				/// in its entirety, including attachments.
-				/// The persistAttachment parameter, when true, causes
-				/// file attachment to be persisted into temporary files
-				/// to prevent potential memory exhaustion that large files
-				/// could cause.
+		MultiPartHandler(MailMessage* pMsg): _pMsg(pMsg)
+			/// Creates multi part handler.
+			/// The pMsg pointer points to the calling MailMessage
+			/// and will be used to properly populate it, so the
+			/// message content could be written out unmodified
+			/// in its entirety, including attachments.
 		{
 		}
 		
-		~StringPartHandler()
-			/// Destroys strign part handler.
+		~MultiPartHandler()
+			/// Destroys string part handler.
 		{
 		}
 		
@@ -127,35 +116,17 @@ namespace
 				if (cdIt != header.end())
 				{
 					NameValueCollection::ConstIterator ciIt = header.find(MailMessage::HEADER_CONTENT_ID);
-					if (cdIt->second == "inline")
-					{
-						StringPartSource* pSPS = new StringPartSource(tmp, header[MailMessage::HEADER_CONTENT_TYPE]);
-						if (ciIt != header.end()) pSPS->headers().set(ciIt->first, ciIt->second);
-						pSPS->headers().set(cdIt->first, cdIt->second);
-						_pMsg->addContent(pSPS, cte);
-					}
-					else // "attachment"
-					{
-						if (!_persistAttachment) // leave attachment file embedded in message
-						{
-							StringPartSource* pFPS = new StringPartSource(tmp,
-								header[MailMessage::HEADER_CONTENT_TYPE], getFileNameFromDisp(cdIt->second));
-							if (ciIt != header.end()) pFPS->headers().set(ciIt->first, ciIt->second);
-							pFPS->headers().set(cdIt->first, cdIt->second);
-							_pMsg->addAttachment("", pFPS, cte);
-						}
-						else // persist attachemnt file to filesystem
-						{
-							PersistentPartSource* pFPS = new PersistentPartSource(tmp,
-								header[MailMessage::HEADER_CONTENT_TYPE], getFileNameFromDisp(cdIt->second));
-							if (ciIt != header.end()) pFPS->headers().set(ciIt->first, ciIt->second);
-							pFPS->headers().set(cdIt->first, cdIt->second);
-							_pMsg->addAttachment("", pFPS, cte);
-						}
-					}
+					
+					PartSource* pPS = _pMsg->getPartStore(tmp, 
+						header[MailMessage::HEADER_CONTENT_TYPE], getFileNameFromDisp(cdIt->second));
+
+					if (ciIt != header.end()) pPS->headers().set(ciIt->first, ciIt->second);
+					pPS->headers().set(cdIt->first, cdIt->second);
+					
+					if (cdIt->second == "inline") _pMsg->addContent(pPS, cte);
+					else _pMsg->addAttachment("", pPS, cte);
 				}
 			}
-			_str.append(tmp);
 		}
 		
 	private:
@@ -171,13 +142,40 @@ namespace
 				if (it == end) return "";
 				return *it;
 			}
-			
 			return "";
 		}
 
-		std::string& _str;
 		MailMessage* _pMsg;
-		bool         _persistAttachment;
+	};
+
+
+	class StringPartHandler: public PartHandler
+		/// This is a defualt part handler, used when there is no
+		/// external handler provided to he MailMessage. This handler
+		/// handles only single-part messages.
+	{
+	public:
+		StringPartHandler(std::string& content): _str(content)
+			/// Creates string part handler.
+			/// The content parameter represents the part content.
+		{
+		}
+		
+		~StringPartHandler()
+			/// Destroys string part handler.
+		{
+		}
+		
+		void handlePart(const MessageHeader& header, std::istream& stream)
+			/// Handles a part.
+		{
+			std::string tmp;
+			Poco::StreamCopier::copyToString(stream, tmp);
+			_str.append(tmp);
+		}
+		
+	private:
+		std::string& _str;
 	};
 }
 
@@ -201,8 +199,8 @@ const std::string MailMessage::CTE_QUOTED_PRINTABLE("quoted-printable");
 const std::string MailMessage::CTE_BASE64("base64");
 
 
-MailMessage::MailMessage(bool persistAttachments): 
-	_persistAttachments(persistAttachments)
+MailMessage::MailMessage(PartStoreFactory* pStoreFactory): 
+	_pStoreFactory(pStoreFactory)
 {
 	Poco::Timestamp now;
 	setDate(now);
@@ -357,7 +355,7 @@ void MailMessage::read(std::istream& istr)
 	readHeader(istr);
 	if (isMultipart())
 	{
-		StringPartHandler handler(_content, this, _persistAttachments);
+		MultiPartHandler handler(this);
 		readMultipart(istr, handler);
 	}
 	else
@@ -677,6 +675,13 @@ std::string MailMessage::encodeWord(const std::string& text, const std::string& 
 		encodedText += "?=";
 	}	
 	return encodedText;
+}
+
+
+PartSource* MailMessage::getPartStore(const std::string& content, const std::string& mediaType, const std::string& filename)
+{
+	if (!_pStoreFactory) return new StringPartSource(content, mediaType, filename);
+	else return _pStoreFactory->createPartStore(content, mediaType, filename);
 }
 
 

@@ -1,13 +1,13 @@
 //
-// FilePartSource.h
+// PartStore.h
 //
-// $Id: //poco/1.4/Net/include/Poco/Net/FilePartSource.h#1 $
+// $Id: //poco/1.4/Net/include/Poco/Net/PartStore.h#1 $
 //
 // Library: Net
 // Package: Messages
-// Module:  FilePartSource
+// Module:  PartStore
 //
-// Definition of the FilePartSource class.
+// Definition of the PartStore class.
 //
 // Copyright (c) 2005-2006, Applied Informatics Software Engineering GmbH.
 // and Contributors.
@@ -36,61 +36,67 @@
 //
 
 
-#ifndef Net_FilePartSource_INCLUDED
-#define Net_FilePartSource_INCLUDED
+#ifndef Net_PartStore_INCLUDED
+#define Net_PartStore_INCLUDED
 
 
 #include "Poco/Net/Net.h"
 #include "Poco/Net/PartSource.h"
 #include "Poco/FileStream.h"
-#include "Poco/TemporaryFile.h"
 
 
 namespace Poco {
 namespace Net {
 
 
-class Net_API FilePartSource: public PartSource
-	/// An implementation of PartSource for
-	/// plain files.
+class Net_API PartStore: public PartSource
+	/// An implementation of PartSource for persisting
+	/// parts (usually email attachment files) to the file system.
 {
 public:
-	FilePartSource(const std::string& path);
-		/// Creates the FilePartSource for the given path.
+	PartStore(const std::string& content, const std::string& mediaType, const std::string& filename = "");
+		/// Creates the PartFileStore for the given MIME type.
+		/// For security purposes, attachment filename is NOT used to save file to the file system.
+		/// A unique temporary file name is used to persist the file.
+		/// The given filename parameter is the message part (attachment) filename (see filename()) only.
 		///
-		/// The MIME type is set to application/octet-stream.
-		///
-		/// Throws an OpenFileException if the file cannot be opened.
-	
-	FilePartSource(const std::string& path, const std::string& mediaType);
-		/// Creates the FilePartSource for the given
-		/// path and MIME type.
-		///
-		/// Throws an OpenFileException if the file cannot be opened.
+		/// Throws an exception if the file cannot be opened.
 
-	FilePartSource(const std::string& path, const std::string& filename, const std::string& mediaType);
-		/// Creates the FilePartSource for the given
-		/// path and MIME type. The given filename is 
-		/// used as part filename (see filename()) only.
-		///
-		/// Throws an OpenFileException if the file cannot be opened.
-
-	~FilePartSource();
-		/// Destroys the FilePartSource.
+	~PartStore();
+		/// Destroys the PartFileStore.
 
 	std::istream& stream();
 		/// Returns a file input stream for the given file.
-		
+
 	const std::string& filename();
 		/// Returns the filename portion of the path.
 
 private:
-	std::string _filename;
-	Poco::FileInputStream _istr;
+	std::string      _filename;
+	std::string      _path;
+	Poco::FileStream _fstr;
+};
+
+
+class PartStoreFactory
+	/// Parent factory class for part stores creation.
+{
+public:
+	virtual PartSource* createPartStore(const std::string& content, const std::string& mediaType, const std::string& filename = "") = 0;
+};
+
+
+class PartFileStoreFactory: public PartStoreFactory
+{
+public:
+	PartSource* createPartStore(const std::string& content, const std::string& mediaType, const std::string& filename = "")
+	{
+		return new PartStore(content, mediaType, filename);
+	}
 };
 
 
 } } // namespace Poco::Net
 
 
-#endif // Net_FilePartSource_INCLUDED
+#endif // Net_PartStore_INCLUDED

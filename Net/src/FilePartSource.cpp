@@ -96,32 +96,4 @@ const std::string& FilePartSource::filename()
 }
 
 
-PersistentPartSource::PersistentPartSource(const std::string& content, const std::string& mediaType, const std::string& filename):
-	PartSource(mediaType),
-	_tmpFile(true),
-	_filename(filename),
-	_fstr(_tmpFile.path())
-{
-	_fstr << content << std::flush;
-	_fstr.seekg(0, std::ios::beg);
-}
-
-
-PersistentPartSource::~PersistentPartSource()
-{
-}
-
-
-std::istream& PersistentPartSource::stream()
-{
-	return _fstr;
-}
-
-
-const std::string& PersistentPartSource::filename()
-{
-	return _filename;
-}
-
-
 } } // namespace Poco::Net
