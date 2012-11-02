@@ -91,18 +91,13 @@ public:
 		/// Creates an empty MailMessage.
 		/// 
 		/// If pStoreFactory is not null, message attachments will be 
-		/// handled by the object cretaed by the factory. One obvious
-		/// mode of operation is to temporarily save attachments to 
+		/// handled by the object created by the factory. Most
+		/// common reason is to temporarily save attachments to 
 		/// the file system in order to avoid potential memory 
 		/// exhaustion when attachment files are very large.
 
 	virtual ~MailMessage();
 		/// Destroys the MailMessage.
-	
-	PartSource* getPartStore(const std::string& content, const std::string& mediaType, const std::string& filename = "");
-		/// Returns either built in (SringPartCource) part store or, 
-		/// if the part store factory was provided during contruction,
-		/// the one created by PartStoreFactory.
 
 	void addRecipient(const MailRecipient& recipient);
 		/// Adds a recipient for the message.
@@ -198,7 +193,7 @@ public:
 		/// must not contain any non-ASCII characters.
 		/// To include non-ASCII characters in the part name or filename, 
 		/// use RFC 2047 word encoding (see encodeWord()).
-		
+
 	void addAttachment(const std::string& name, PartSource* pSource, ContentTransferEncoding encoding = ENCODING_BASE64);
 		/// Adds an attachment to the mail message by calling
 		/// addPart(name, pSource, CONTENT_ATTACHMENT, encoding);
@@ -207,6 +202,11 @@ public:
 		/// must not contain any non-ASCII characters.
 		/// To include non-ASCII characters in the part name or filename, 
 		/// use RFC 2047 word encoding (see encodeWord()).
+
+	PartSource* getPartStore(const std::string& content, const std::string& mediaType, const std::string& filename = "");
+		/// Returns either built in (StringPartSource) part store or, 
+		/// if the part store factory was provided during contruction,
+		/// the one created by PartStoreFactory.
 
 	void read(std::istream& istr, PartHandler& handler);
 		/// Reads the MailMessage from the given input stream.
@@ -224,7 +224,7 @@ public:
 
 	void write(std::ostream& ostr) const;
 		/// Writes the mail message to the given output stream.
-		
+
 	static std::string encodeWord(const std::string& text, const std::string& charset = "UTF-8");
 		/// If the given string contains non-ASCII characters, 
 		/// encodes the given string using RFC 2047 "Q" word encoding.

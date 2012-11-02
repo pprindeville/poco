@@ -150,8 +150,8 @@ namespace
 
 
 	class StringPartHandler: public PartHandler
-		/// This is a defualt part handler, used when there is no
-		/// external handler provided to he MailMessage. This handler
+		/// This is a default part handler, used when there is no
+		/// external handler provided to the MailMessage. This handler
 		/// handles only single-part messages.
 	{
 	public:

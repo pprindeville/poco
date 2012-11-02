@@ -50,7 +50,7 @@ using Poco::Net::MessageHeader;
 using Poco::Net::PartHandler;
 using Poco::Net::MediaType;
 using Poco::Net::StringPartSource;
-using Poco::Net::PartFileStoreFactory;
+using Poco::Net::FilePartStoreFactory;
 using Poco::Timestamp;
 using Poco::replaceInPlace;
 
@@ -487,7 +487,7 @@ void MailMessageTest::testReadWriteMultiPartStore()
 
 	std::istringstream istr(msgin);
 	std::ostringstream ostr;
-	PartFileStoreFactory pfsf;
+	FilePartStoreFactory pfsf;
 	MailMessage message(&pfsf);
 
 	message.read(istr);

@@ -44,8 +44,22 @@ namespace Poco {
 namespace Net {
 
 
-PartStore::PartStore(const std::string& content, const std::string& mediaType, const std::string& filename):
-	PartSource(mediaType),
+/// PartStore
+
+PartStore::PartStore(const std::string& mediaType): PartSource(mediaType)
+{
+}
+
+
+PartStore::~PartStore()
+{
+}
+
+
+/// FilePartStore
+
+FilePartStore::FilePartStore(const std::string& content, const std::string& mediaType, const std::string& filename):
+	PartStore(mediaType),
 	_filename(filename),
 	_path(TemporaryFile::tempName()),
 	_fstr(_path)
@@ -55,7 +69,7 @@ PartStore::PartStore(const std::string& content, const std::string& mediaType, c
 }
 
 
-PartStore::~PartStore()
+FilePartStore::~FilePartStore()
 {
 	try
 	{
@@ -68,13 +82,13 @@ PartStore::~PartStore()
 }
 
 
-std::istream& PartStore::stream()
+std::istream& FilePartStore::stream()
 {
 	return _fstr;
 }
 
 
-const std::string& PartStore::filename()
+const std::string& FilePartStore::filename()
 {
 	return _filename;
 }

@@ -50,20 +50,35 @@ namespace Net {
 
 
 class Net_API PartStore: public PartSource
+	/// A parent class for part stores storing message parts.
+{
+public:
+	PartStore(const std::string& mediaType);
+		/// Creates the PartStore for the given MIME type.
+
+	~PartStore();
+		/// Destroys the PartFileStore.
+
+private:
+	PartStore();
+};
+
+
+class Net_API FilePartStore: public PartStore
 	/// An implementation of PartSource for persisting
 	/// parts (usually email attachment files) to the file system.
 {
 public:
-	PartStore(const std::string& content, const std::string& mediaType, const std::string& filename = "");
-		/// Creates the PartFileStore for the given MIME type.
+	FilePartStore(const std::string& content, const std::string& mediaType, const std::string& filename = "");
+		/// Creates the FilePartStore for the given MIME type.
 		/// For security purposes, attachment filename is NOT used to save file to the file system.
 		/// A unique temporary file name is used to persist the file.
 		/// The given filename parameter is the message part (attachment) filename (see filename()) only.
 		///
 		/// Throws an exception if the file cannot be opened.
 
-	~PartStore();
-		/// Destroys the PartFileStore.
+	~FilePartStore();
+		/// Destroys the FilePartStore.
 
 	std::istream& stream();
 		/// Returns a file input stream for the given file.
@@ -86,12 +101,12 @@ public:
 };
 
 
-class PartFileStoreFactory: public PartStoreFactory
+class FilePartStoreFactory: public PartStoreFactory
 {
 public:
 	PartSource* createPartStore(const std::string& content, const std::string& mediaType, const std::string& filename = "")
 	{
-		return new PartStore(content, mediaType, filename);
+		return new FilePartStore(content, mediaType, filename);
 	}
 };
 
