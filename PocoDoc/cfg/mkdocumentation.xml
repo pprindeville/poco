@@ -36,7 +36,8 @@
 				-I/usr/local/mysql/include,
 				-D_DEBUG,
 				-E,
-				-C
+				-C,
+				-DPOCO_NO_GCC_API_ATTRIBUTE
 			</options>
 			<path></path>
 			<usePipe>true</usePipe>
