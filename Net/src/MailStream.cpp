@@ -165,22 +165,12 @@ int MailStreamBuf::writeToDevice(char c)
 	default:
 		_state = ST_DATA;
 	}
-	if (_state == ST_DATA)
+	_pOstr->put(c);
+	if (_state == ST_CR_LF_DOT)
 	{
-		if (!_buffer.empty())
-		{
-			_pOstr->write(_buffer.data(), (std::streamsize) _buffer.length());
-			_buffer.clear();
-		}
-		_pOstr->put(c);
-	}
-	else if (_state == ST_CR_LF_DOT)
-	{
-		_pOstr->write("\r\n..", 4);
+		_pOstr->put('.');
 		_state = ST_DATA;
-		_buffer.clear();
 	}
-	else _buffer += c;
 	return charToInt(c);
 }
 
